@@ -183,6 +183,59 @@ def augment_channel_translation(data, const_channel=0, max_shifts=None):
     data_return = np.concatenate([const_data, trans_data], axis=1)
     return data_return
 
+def augment_channel_translation_fixmatch(data, const_channel=0, max_shifts=None):
+    if max_shifts is None:
+        max_shifts = {'z': 12.5, 'y': 12.5, 'x': 12.5}  # max percent
+
+    shape = data.shape
+
+    const_data = data[:, [const_channel]]
+    trans_data = data[:, [i for i in range(shape[1]) if i != const_channel]]
+
+    # iterate the batch dimension
+    for j in range(shape[0]):
+
+        slice = trans_data[j]
+
+        ixs = {}
+        pad = {}
+
+        if len(shape) == 5:
+            dims = ['z', 'y', 'x']
+            shapes = [slice.shape[-3], slice.shape[-2], slice.shape[-1]]
+        else:
+            dims = ['y', 'x']
+            shapes = [slice.shape[-2], slice.shape[-1]]
+
+        # iterate the image dimensions, randomly draw shifts/translations
+        for i, (v, sh) in enumerate(zip(dims)):
+            max_shift = int(sh / 100 * max_shifts[v])
+            rand_shift = np.random.choice(list(range(-max_shift, max_shift, 1)))
+
+            if rand_shift > 0:
+                ixs[v] = {'lo': 0, 'hi': -rand_shift}
+                pad[v] = {'lo': rand_shift, 'hi': 0}
+            else:
+                ixs[v] = {'lo': abs(rand_shift), 'hi': shape[2 + i]}
+                pad[v] = {'lo': 0, 'hi': abs(rand_shift)}
+
+        # shift and pad so as to retain the original image shape
+        if len(shape) == 5:
+            slice = slice[:, ixs['z']['lo']:ixs['z']['hi'], ixs['y']['lo']:ixs['y']['hi'],
+                    ixs['x']['lo']:ixs['x']['hi']]
+            slice = np.pad(slice, ((0, 0), (pad['z']['lo'], pad['z']['hi']), (pad['y']['lo'], pad['y']['hi']),
+                                   (pad['x']['lo'], pad['x']['hi'])),
+                           mode='constant', constant_values=(0, 0))
+        if len(shape) == 4:
+            slice = slice[:, ixs['y']['lo']:ixs['y']['hi'], ixs['x']['lo']:ixs['x']['hi']]
+            slice = np.pad(slice, ((0, 0), (pad['y']['lo'], pad['y']['hi']), (pad['x']['lo'], pad['x']['hi'])),
+                           mode='constant', constant_values=(0, 0))
+
+        trans_data[j] = slice
+
+    data_return = np.concatenate([const_data, trans_data], axis=1)
+    return data_return
+
 
 def augment_spatial(data, seg, patch_size, patch_center_dist_from_border=30,
                     do_elastic_deform=True, alpha=(0., 1000.), sigma=(10., 13.),
