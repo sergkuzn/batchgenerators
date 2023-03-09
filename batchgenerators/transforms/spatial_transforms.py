@@ -189,7 +189,7 @@ class MirrorTransform(AbstractTransform):
 
     """
 
-    def __init__(self, axes=(0, 1, 2), data_key="data", label_key="seg", p_per_sample=1):
+    def __init__(self, axes=(0, 1, 2), data_key="data", label_key="seg", p_per_sample=0.5):
         self.p_per_sample = p_per_sample
         self.data_key = data_key
         self.label_key = label_key
